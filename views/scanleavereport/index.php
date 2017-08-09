@@ -36,7 +36,7 @@ $this->params['breadcrumbs'][] = $this->title;
                 <div class="well">
                     <div align="left" ><b> <i class="fa fa-search"></i>  ค้นหา  ชื่อ สกุล </b></div>
                     <hr>
-                    <?php echo $this->render('_search', ['model' => $searchModel]); ?>
+                    <?php echo $this->render('_search', ['model' => $searchModel]);  echo Yii::$app->session["member_name"]; ?>
                 </div>
             </div>
         </div>
@@ -132,7 +132,7 @@ $this->params['breadcrumbs'][] = $this->title;
                             [
                                 'class' => 'yii\grid\ActionColumn',
                                 'header'=>'คำสั่ง',
-                                'template' => '{leave/print}  {update}',
+                                'template' => '{leave/print}  {update} {delete}',
                                 'contentOptions' => [
                                     'noWrap' => true
                                 ],
@@ -157,6 +157,29 @@ $this->params['breadcrumbs'][] = $this->title;
                                         //return Html::button('เพิ่มประเภทงาน', ['value' => Url::to('@web/jobdetail/update/'.$model->jobdetail_id), 'class' => 'btn btn-success', 'id' => 'modalButtonCPU']);
                                         return Html::a('<div type="button" class="btn btn-primary btn-sm"><i class="fa fa-pencil"></i></div>', $url);
                                     },
+                                    'delete' => function($url, $model, $key) {
+
+                                        $sql ="SELECT DISTINCT i.time_A FROM scan_userinfo u
+                                            LEFT JOIN scan_department d ON u.defaultdepid=d.deptid
+                                            LEFT JOIN scan_intime i ON d.intime_id=i.intime_id
+                                            where u.defaultdepid ='$model->depart';";
+
+                                        $rw = Yii::$app->db->createCommand($sql)->queryAll();
+
+                                        foreach ($rw as $r){
+                                            $time = $r['time_A'];
+                                        }
+
+                                        if($time == '00:00:00'){
+
+                                            return Html::a('<div type="button" class="btn btn-danger btn-sm"><i class="fa fa-trash-o"></i></div>', $url, [
+                                                'data' => [
+                                                    'confirm' => 'คุณต้องการลบ ข้อมูล ใช่หรือไม่?',
+                                                    'method' => 'post',
+                                                ],
+                                            ]);
+                                        }
+                                    }
                                 ]
                             ],
                         ],
