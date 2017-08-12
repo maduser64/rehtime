@@ -158,10 +158,6 @@ $count_leave = 0;
 $count_daydatelate = 0;
 
 
-//ตัวแปรเก็บค่า วันแสกนทำงาน โดยตัด วันลา ส อ
-$sumscandate = 0;
-
-
 $intTotalDay = ((strtotime($strEndDate) - strtotime($strStartDate)) / (60 * 60 * 24)) + 1;
 
 
@@ -178,33 +174,19 @@ while (strtotime($strStartDate) <= strtotime($strEndDate)) {
 
         $day = "วัน  อาทิตย์ ที่ " . DateThai($strStartDate);
 
+        //เชคการมาทำงานสายของ บุคคล
 
-        $sqlday = "SELECT DISTINCT SUBSTR(checktime,1,11) AS date,c.userid
-            FROM scan_chkinout as c
-            WHERE c.userid = '$userid'
-            AND DATE_FORMAT(c.checktime,'%Y-%m-%d') = '$strStartDate';";
+        $strSQL1 = "SELECT DISTINCT SUBSTR(ch.checktime,1,11) AS date
+        FROM scan_chkinout ch
+        WHERE ch.userid='$userid'
+        AND DATE_FORMAT(ch.checktime,'%Y-%m-%d') BETWEEN '$date_strat' AND '$date_end';
+        ";
+
+        $objResult1 = Yii::$app->db->createCommand($strSQL1)->queryAll();
 
 
-        $result_dayon = Yii::$app->db->createCommand($sqlday)->queryAll();
-        $cout_dayon = count($result_dayon);
-
-        if ($cout_dayon == 0) {
-            //$sumscandate += 1;
-
-            $sqlcut_leave = "SELECT DISTINCT date FROM scan_leave WHERE userid = '$userid' AND  date = '$strStartDate'; ";
-            $resultcut_leave = Yii::$app->db->createCommand($sqlcut_leave)->queryAll();
-
-            $cut_leave = count($resultcut_leave);
-
-            if ($cut_leave == 1) {
-                $sumscandate += 0;
-            } else {
-                $sumscandate += 1;
-            }
-
-        } else {
-            $sumscandate += 0;
-        }
+        //นับจำนวนวันที่แสกนลายนิ้วมือ
+        $count_leave = count($objResult1);
 
 
     } elseif ($DayOfWeek == 6) {
@@ -212,33 +194,6 @@ while (strtotime($strStartDate) <= strtotime($strEndDate)) {
         //$strStartDate = "<font color=red>Holiday</font><br>";
 
         $day = "วัน  เสาร์ ที่  " . DateThai($strStartDate);
-
-        $sqlday = "SELECT DISTINCT SUBSTR(checktime,1,11) AS date,c.userid
-            FROM scan_chkinout as c
-            WHERE c.userid = '$userid'
-            AND DATE_FORMAT(c.checktime,'%Y-%m-%d') = '$strStartDate';";
-
-
-        $result_dayon = Yii::$app->db->createCommand($sqlday)->queryAll();
-        $cout_dayon = count($result_dayon);
-
-        if ($cout_dayon == 0) {
-            //$sumscandate += 1;
-
-            $sqlcut_leave = "SELECT DISTINCT date FROM scan_leave WHERE userid = '$userid' AND  date = '$strStartDate'; ";
-            $resultcut_leave = Yii::$app->db->createCommand($sqlcut_leave)->queryAll();
-
-            $cut_leave = count($resultcut_leave);
-
-            if ($cut_leave == 1) {
-                $sumscandate += 0;
-            } else {
-                $sumscandate += 1;
-            }
-
-        } else {
-            $sumscandate += 0;
-        }
 
 
     } elseif (CheckPublicHoliday($strStartDate)) {
@@ -254,173 +209,19 @@ while (strtotime($strStartDate) <= strtotime($strEndDate)) {
 
         }
 
-        $sqlday = "SELECT DISTINCT SUBSTR(checktime,1,11) AS date,c.userid
-            FROM scan_chkinout as c
-            WHERE c.userid = '$userid'
-            AND DATE_FORMAT(c.checktime,'%Y-%m-%d') = '$strStartDate';";
-
-
-        $result_dayon = Yii::$app->db->createCommand($sqlday)->queryAll();
-        $cout_dayon = count($result_dayon);
-
-        if ($cout_dayon > 0) {
-            $sumscandate += 0;
-        } else {
-            $sumscandate += 0;
-        }
-
 
     } else {
         $intWorkDay++;
         if ($DayOfWeek == 1) {
             $day = "วัน  จันทร์ ที่ " . DateThai($strStartDate);
-
-            $sqlday = "SELECT DISTINCT SUBSTR(checktime,1,11) AS date,c.userid
-            FROM scan_chkinout as c
-            WHERE c.userid = '$userid'
-            AND DATE_FORMAT(c.checktime,'%Y-%m-%d') = '$strStartDate';";
-
-
-            $result_dayon = Yii::$app->db->createCommand($sqlday)->queryAll();
-            $cout_dayon = count($result_dayon);
-
-            if ($cout_dayon == 0) {
-                //$sumscandate += 1;
-
-                $sqlcut_leave = "SELECT DISTINCT date FROM scan_leave WHERE userid = '$userid' AND  date = '$strStartDate'; ";
-                $resultcut_leave = Yii::$app->db->createCommand($sqlcut_leave)->queryAll();
-
-                $cut_leave = count($resultcut_leave);
-
-                if ($cut_leave == 1) {
-                    $sumscandate += 0;
-                } else {
-                    $sumscandate += 1;
-                }
-
-            } else {
-                $sumscandate += 0;
-            }
-
-
         } elseif ($DayOfWeek == 2) {
             $day = "วัน  อังคาร ที่ " . DateThai($strStartDate);
-
-            $sqlday = "SELECT DISTINCT SUBSTR(checktime,1,11) AS date,c.userid
-            FROM scan_chkinout as c
-            WHERE c.userid = '$userid'
-            AND DATE_FORMAT(c.checktime,'%Y-%m-%d') = '$strStartDate';";
-
-
-            $result_dayon = Yii::$app->db->createCommand($sqlday)->queryAll();
-            $cout_dayon = count($result_dayon);
-
-            if ($cout_dayon == 0) {
-                //$sumscandate += 1;
-
-                $sqlcut_leave = "SELECT DISTINCT date FROM scan_leave WHERE userid = '$userid' AND  date = '$strStartDate'; ";
-                $resultcut_leave = Yii::$app->db->createCommand($sqlcut_leave)->queryAll();
-
-                $cut_leave = count($resultcut_leave);
-
-                if ($cut_leave == 1) {
-                    $sumscandate += 0;
-                } else {
-                    $sumscandate += 1;
-                }
-
-            } else {
-                $sumscandate += 0;
-            }
-
         } elseif ($DayOfWeek == 3) {
             $day = "วัน  พุธ ที่ " . DateThai($strStartDate);
-
-            $sqlday = "SELECT DISTINCT SUBSTR(checktime,1,11) AS date,c.userid
-            FROM scan_chkinout as c
-            WHERE c.userid = '$userid'
-            AND DATE_FORMAT(c.checktime,'%Y-%m-%d') = '$strStartDate';";
-
-
-            $result_dayon = Yii::$app->db->createCommand($sqlday)->queryAll();
-            $cout_dayon = count($result_dayon);
-
-            if ($cout_dayon == 0) {
-                //$sumscandate += 1;
-
-                $sqlcut_leave = "SELECT DISTINCT date FROM scan_leave WHERE userid = '$userid' AND  date = '$strStartDate'; ";
-                $resultcut_leave = Yii::$app->db->createCommand($sqlcut_leave)->queryAll();
-
-                $cut_leave = count($resultcut_leave);
-
-                if ($cut_leave == 1) {
-                    $sumscandate += 0;
-                } else {
-                    $sumscandate += 1;
-                }
-
-            } else {
-                $sumscandate += 0;
-            }
-
         } elseif ($DayOfWeek == 4) {
             $day = "วัน  พฤหัส ที่ " . DateThai($strStartDate);
-
-            $sqlday = "SELECT DISTINCT SUBSTR(checktime,1,11) AS date,c.userid
-            FROM scan_chkinout as c
-            WHERE c.userid = '$userid'
-            AND DATE_FORMAT(c.checktime,'%Y-%m-%d') = '$strStartDate';";
-
-
-            $result_dayon = Yii::$app->db->createCommand($sqlday)->queryAll();
-            $cout_dayon = count($result_dayon);
-
-            if ($cout_dayon == 0) {
-                //$sumscandate += 1;
-
-                $sqlcut_leave = "SELECT DISTINCT date FROM scan_leave WHERE userid = '$userid' AND  date = '$strStartDate'; ";
-                $resultcut_leave = Yii::$app->db->createCommand($sqlcut_leave)->queryAll();
-
-                $cut_leave = count($resultcut_leave);
-
-                if ($cut_leave == 1) {
-                    $sumscandate += 0;
-                } else {
-                    $sumscandate += 1;
-                }
-
-            } else {
-                $sumscandate += 0;
-            }
         } else {
             $day = "วัน  ศุกร์ ที่ " . DateThai($strStartDate);
-
-            $sqlday = "SELECT DISTINCT SUBSTR(checktime,1,11) AS date,c.userid
-            FROM scan_chkinout as c
-            WHERE c.userid = '$userid'
-            AND DATE_FORMAT(c.checktime,'%Y-%m-%d') = '$strStartDate';";
-
-
-            $result_dayon = Yii::$app->db->createCommand($sqlday)->queryAll();
-            $cout_dayon = count($result_dayon);
-
-            if ($cout_dayon == 0) {
-                //$sumscandate += 1;
-
-                $sqlcut_leave = "SELECT DISTINCT date FROM scan_leave WHERE userid = '$userid' AND  date = '$strStartDate'; ";
-                $resultcut_leave = Yii::$app->db->createCommand($sqlcut_leave)->queryAll();
-
-                $cut_leave = count($resultcut_leave);
-
-                if ($cut_leave == 1) {
-                    $sumscandate += 0;
-                } else {
-                    $sumscandate += 1;
-                }
-
-            } else {
-                $sumscandate += 0;
-            }
         }
 
         //$strStartDate = "<b>Work Day</b><br>";
@@ -970,15 +771,25 @@ $sqlleave1 = "SELECT DISTINCT leavetype_name,l.leavetype_id as leavetype_id,date
             FROM scan_leave as l
             INNER JOIN scan_leavetype AS t
             ON l.leavetype_id = t.leavetype_id
-            WHERE userid='$userid'
+            WHERE userid='$userid' 
             AND DATE_FORMAT(date,'%Y-%m-%d') BETWEEN '$date_strat' AND '$date_end';
             ";
 
 $rwleave1 = Yii::$app->db->createCommand($sqlleave1)->queryAll();
 $count_leave1 = count($rwleave1);
-//
-//
-//$sumscandate = $intTotalDay - ($sumscandate+$count_leave1+$intPublicHoliday);
+
+//วันที่แสกน บวก วันที่ลา มากกว่า วันที่ทำงาน;
+if (($count_daydatenoscan + $count_leave1) > $intTotalDay) {
+    $sumworkleavel = ($intTotalDay - $count_daydatenoscan) - ($count_leave1 - $count_leave1);
+//วันที่แสกน บวก วันที่ลา น้อยกว่า วันที่ทำงาน;
+} elseif (($count_daydatenoscan + $count_leave1) < $intTotalDay) {
+    $sumworkleavel = ($intTotalDay - $count_daydatenoscan) - $count_leave1;
+
+} elseif (($count_daydatenoscan + $count_leave1) == $intTotalDay) {
+    $sumworkleavel = ($intTotalDay - $count_daydatenoscan) - $count_leave1;
+} else {
+    $sumworkleavel = ($intTotalDay - $count_daydatenoscan) - ($count_leave1 - $count_leave1) - $count_leave1;
+}
 
 
 $content .= "<table width='100%'>
@@ -990,8 +801,7 @@ $content .= "<table width='100%'>
     สายดึก   " . $count_daydatelate . " ครั้ง 
     สรุป มาสาย " . $sumcount_day . " ครั้ง
     วันลา/หยุด " . $count_leave1 . "  ครั้ง
-    วันหยุด นักขัตฤกษ์ " . $intPublicHoliday . "  ครั้ง
-    ไม่แสกนลายนิ้วมือ " . $sumscandate . "  ครั้ง
+    ไม่แสกนลายนิ้วมือ " . $sumworkleavel . "  ครั้ง 
     </b></td>
     <td style='font-size: 16px;' align='right' colspan='5'>ลงชื่อ ......................................................................( หัวหน้าแผนก )</td>"
     . "</tr>
@@ -1001,6 +811,7 @@ $content .= "<table width='100%'>
 </table>";
 
 /*ไม่แสกนลายนิ้วมือ ".$sumworkleavel.'-'.$count_daydatenoscan.'-'.$count_leave1.'-'.$intTotalDay.'-'.$sumcutdayoff.  "  ครั้ง */
+
 
 $html = $header . $content;
 

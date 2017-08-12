@@ -390,6 +390,14 @@ class DateThaiController extends Controller
     }
 
 
+    public static function BadgenumberScan($badgenumber, $date_strat, $date_end)
+    {
+
+        return $badgenumber;
+
+    }
+
+
 }
 
 ?>

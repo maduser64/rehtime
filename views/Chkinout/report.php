@@ -160,6 +160,7 @@ $count_leave = 0;
 $dayoff = 0;
 $dayoffweek = 0;
 $horiday_dayweek = 0;
+
 $sumscandate = 0;
 $sumscandateleave = 0;
 
@@ -181,6 +182,7 @@ while (strtotime($strStartDate) <= strtotime($strEndDate)) {
             FROM scan_chkinout as c
             WHERE c.userid = '$userid'
             AND DATE_FORMAT(c.checktime,'%Y-%m-%d') = '$strStartDate';";
+
 
         $result_dayon = Yii::$app->db->createCommand($sqlday)->queryAll();
         $cout_dayon = count($result_dayon);
@@ -241,6 +243,7 @@ while (strtotime($strStartDate) <= strtotime($strEndDate)) {
     } else {
         $intWorkDay++;
         if ($DayOfWeek == 1) {
+
             $day = "วัน  จันทร์ ที่ " . DateThai($strStartDate);
 
             $sqlday = "SELECT DISTINCT SUBSTR(checktime,1,11) AS date,c.userid
