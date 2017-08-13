@@ -392,8 +392,41 @@ class DateThaiController extends Controller
 
     public static function BadgenumberScan($badgenumber, $date_strat, $date_end)
     {
+        $sql = "SELECT DISTINCT SUBSTR(checktime,1,11) AS date
+                FROM scan_chkinout
+                WHERE userid = '$badgenumber'
+                AND DATE_FORMAT(checktime,'%Y-%m-%d') BETWEEN '$date_strat' AND '$date_end';";
 
-        return $badgenumber;
+        $result = Yii::$app->db->createCommand($sql)->queryAll();
+
+        $countresult = count($result);
+
+
+        $sqlscan_holiday ="SELECT DISTINCT SUBSTR(ch.checktime,1,11) AS date
+        FROM scan_chkinout AS ch
+        INNER JOIN scan_holiday AS h
+        ON SUBSTR(ch.checktime,1,11) = h.PublicHoliday
+        WHERE ch.userid = '$badgenumber'
+        AND DATE_FORMAT(ch.checktime,'%Y-%m-%d') BETWEEN '$date_strat' AND '$date_end';";
+
+        $result_holiday = Yii::$app->db->createCommand($sqlscan_holiday)->queryAll();
+
+        $countresult_holiday = count($result_holiday);
+
+        $sqlscan_leava ="select distinct date
+        from scan_leave as l
+        inner join scan_chkinout as ch
+        on l.date = ch.checktime
+        where l.userid = '$badgenumber'
+        and DATE_FORMAT(date,'%Y-%m-%d')  BETWEEN '$date_strat' AND '$date_end';";
+
+        $result_leava = Yii::$app->db->createCommand($sqlscan_leava)->queryAll();
+
+        $countresult_leava = count($result_leava);
+
+
+
+        return $badgenumber.'-'.$countresult.'-'.$countresult_holiday.'-'.$countresult_leava;
 
     }
 

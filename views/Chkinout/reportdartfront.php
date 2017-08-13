@@ -238,7 +238,6 @@ foreach ($rwdart as $r) {
     $badgenumber = $r['badgenumber'];
     $j++;
 
-
     $content .= "<tr>"
         . "<td style='font-size: 14px;'  align='left'>" . $j . "</td>"
         . "<td style='font-size: 14px;'  align='left'>" . $name . "</td>"
@@ -247,6 +246,8 @@ foreach ($rwdart as $r) {
         //สูตรการคำนวณ ไม่แสกนลายนิ้วมือ คือ (วันทำงาน - วันที่แสกน) - (วันที่ลา - วันที่ลา)
         . "<td style='font-size: 14px;'  align='center'>" .
             \app\controllers\DateThaiController::BadgenumberScan($badgenumber, $date_strat, $date_end)
+
+
         . "</td>"
 
         . "<td style='font-size: 14px;'  align='center'>" . 0 . "</td>"
