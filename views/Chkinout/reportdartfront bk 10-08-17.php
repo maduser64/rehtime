@@ -529,6 +529,7 @@ foreach ($rwdart as $r) {
 
     $sumcount_daysum3 += $sumcount_day;
     $sumcount_daysum4 += $sumcount_daysum1;
+
     $type1all += $type1;
     $type2all += $type2;
     $type3all += $type3;

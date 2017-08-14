@@ -157,6 +157,95 @@ function ThaiDate($time)
     return $thai_date_return;
 }
 
+function BadgenumberScan($badgenumber, $date_strat, $date_end)
+{
+    $sql = "SELECT DISTINCT SUBSTR(checktime,1,11) AS date
+                FROM scan_chkinout
+                WHERE userid = '$badgenumber'
+                AND DATE_FORMAT(checktime,'%Y-%m-%d') BETWEEN '$date_strat' AND '$date_end';";
+
+    $result = Yii::$app->db->createCommand($sql)->queryAll();
+
+    $countresult = count($result);
+
+
+    $sqlscan_holiday = "SELECT DISTINCT SUBSTR(ch.checktime,1,11) AS date
+        FROM scan_chkinout AS ch
+        INNER JOIN scan_holiday AS h
+        ON SUBSTR(ch.checktime,1,11) = h.PublicHoliday
+        WHERE ch.userid = '$badgenumber'
+        AND DATE_FORMAT(ch.checktime,'%Y-%m-%d') BETWEEN '$date_strat' AND '$date_end';";
+
+    $result_holiday = Yii::$app->db->createCommand($sqlscan_holiday)->queryAll();
+
+    $countresult_holiday = count($result_holiday);
+
+
+
+    $sqlscan_leava = "SELECT DISTINCT SUBSTR(ch.checktime,1,11) AS date
+        FROM scan_chkinout AS ch
+        INNER JOIN scan_leave AS h
+        ON SUBSTR(ch.checktime,1,11) = h.date
+        WHERE h.userid = '$badgenumber' AND ch.userid = '$badgenumber'
+      AND DATE_FORMAT(ch.checktime,'%Y-%m-%d') BETWEEN '$date_strat' AND '$date_end';";
+
+    $result_leava = Yii::$app->db->createCommand($sqlscan_leava)->queryAll();
+
+    $countresult_leava = count($result_leava);
+
+    $count_scan = $countresult - $countresult_holiday - $countresult_leava;
+
+    return $count_scan;
+
+}
+
+function BadgenumberScanHoliday($badgenumber, $date_strat, $date_end)
+{
+    $sqlscan_leava = "SELECT DISTINCT date
+        FROM scan_leave 
+        WHERE userid = '$badgenumber'
+        AND date IN (SELECT PublicHoliday
+            FROM scan_holiday )
+        AND DATE_FORMAT(date,'%Y-%m-%d') BETWEEN '$date_strat' AND '$date_end';";
+
+    $result_leava = Yii::$app->db->createCommand($sqlscan_leava)->queryAll();
+
+    $countresult_leavaholiday = count($result_leava);
+
+    return $countresult_leavaholiday;
+}
+
+function BadgenumberScanHoliday1($date_strat, $date_end)
+{
+    $sqlscan_leava2 = "SELECT PublicHoliday
+            FROM scan_holiday
+          WHERE DATE_FORMAT(PublicHoliday,'%Y-%m-%d') BETWEEN '$date_strat' AND '$date_end';";
+
+    $result_leava2 = Yii::$app->db->createCommand($sqlscan_leava2)->queryAll();
+
+    $countresult_leavaholiday2 = count($result_leava2);
+
+    return $countresult_leavaholiday2;
+}
+
+function BadgenumberLeave($badgenumber, $date_strat, $date_end)
+{
+    $sqlscan_leava1 = "SELECT DISTINCT date
+        FROM scan_leave 
+        WHERE userid = '$badgenumber'
+        AND DATE_FORMAT(date,'%Y-%m-%d') BETWEEN '$date_strat' AND '$date_end';";
+
+    $result_leava1 = Yii::$app->db->createCommand($sqlscan_leava1)->queryAll();
+
+    $countresult_leava1 = count($result_leava1);
+
+    return $countresult_leava1;
+}
+
+function DayWork($date_strat,$date_end){
+    return (((strtotime($date_end) - strtotime($date_strat)) /  ( 60 * 60 * 24 ))+1);
+}
+
 
 //=====================SQL==========================================
 $sql = "SELECT * FROM scan_userinfo u
@@ -238,30 +327,226 @@ foreach ($rwdart as $r) {
     $badgenumber = $r['badgenumber'];
     $j++;
 
+    //วันที่ แสกน ตัด วันลา และวันหยุนักขกฤ
+    $BadgenumberScan = BadgenumberScan($badgenumber, $date_strat, $date_end);
+
+    //นับวันทำงาน
+    $DayWork = DayWork($date_strat, $date_end);
+
+    //วันลา ที่ลาใน วัน นักขกฤ
+    $BadgenumberScanHoliday = BadgenumberScanHoliday($badgenumber, $date_strat, $date_end);
+
+    //วันลา ทั้งหมด รายบุคคล
+    $BadgenumberLeave = BadgenumberLeave($badgenumber, $date_strat, $date_end);
+
+    $BadgenumberScanHoliday1 = BadgenumberScanHoliday1($date_strat, $date_end);
+
+
+    $sumdayscan = $DayWork - ($BadgenumberScan + $BadgenumberLeave +$BadgenumberScanHoliday1)+$BadgenumberScanHoliday;
+
+
+    //ตัดช่วงเวลามาทำงานสาย เช้า
+    $sql8 = "SELECT ch.userid,ch.checktime,ch.checktype as checktype, SUBSTR(ch.checktime,-8,8) AS time,SUBSTR(ch.checktime,1,11) AS date
+            FROM scan_chkinout ch
+            WHERE ch.userid='$badgenumber'
+            AND ch.checktype = '0' 
+            AND SUBSTR(ch.checktime,-8,8) > '08:15:59' 
+            AND SUBSTR(ch.checktime,-8,8) < '10:00:00'
+            AND ch.checktime BETWEEN '$date_new' AND '$date_new2'; ";
+
+
+    $count_day = Yii::$app->db->createCommand($sql8)->queryAll();
+
+    $count_daydate = count($count_day);
+
+    $date_newnoon = date("Y-m-d 15:00:00", strtotime($date_strat));
+    $date_new2noon = date("Y-m-d 20:00:00", strtotime($date_end));
+
+    //ตัดช่วงเวลามาทำงานสาย บ่าย
+    $sql8noon = "SELECT DISTINCT SUBSTR(ch.checktime,1,11) AS date
+            FROM scan_chkinout ch
+            WHERE ch.userid='$badgenumber'
+            AND ch.checktype = '0'
+            AND SUBSTR(ch.checktime,-8,8) > '16:15:59' 
+            AND SUBSTR(ch.checktime,-8,8) < '20:00:00'
+            AND ch.checktime BETWEEN '$date_newnoon' AND '$date_new2noon'; ";
+
+
+    $count_daynoon = Yii::$app->db->createCommand($sql8noon)->queryAll();
+
+    $count_daydatenoon = count($count_daynoon);
+
+    //กำหนดช่วงเวลา
+    $date_newlate = date("Y-m-d 23:00:00", strtotime($strStartDate));
+    $date_new1late = date("Y-m-d 03:00:00", strtotime("+1 day", strtotime($strStartDate)));
+
+    $sql6 = "SELECT ch.userid,ch.checktime,ch.checktype as checktype, SUBSTR(ch.checktime,-8,8) AS time,SUBSTR(ch.checktime,1,11) AS date
+            FROM scan_chkinout ch
+            WHERE ch.userid='$badgenumber'
+            AND checktype = '0'
+            AND ch.checktime BETWEEN '$date_newlate' AND '$date_new1late' ORDER BY time ASC LIMIT 1;";
+
+    $rw6 = Yii::$app->db->createCommand($sql6)->queryAll();
+
+    $count_daydatelate = count($rw6);
+
+
+    $sumcount_day = $count_daydate + $count_daydatenoon + $count_daydatelate;
+
+
+    //นับวัน ลา
+    $sqlleave = "SELECT SUM(leavetype_id = '1') as type1,SUM(leavetype_id = '2') as type2
+                ,SUM(leavetype_id = '3') as type3,SUM(leavetype_id = '4') as type4,SUM(leavetype_id = '8') as type5,
+                SUM(leavetype_id = '5') as type55,
+                SUM(leavetype_id = '10') as type10,
+                SUM(leavetype_id = '9') as type9,
+                SUM(leavetype_id = '11') as type11,
+                SUM(leavetype_id = '12') as type12,
+                COUNT(leavetype_id) as sumleave
+                FROM scan_leave 
+                WHERE userid = '$badgenumber'
+                AND depart = '$userid'
+                AND date BETWEEN '$date_strat' AND '$date_end';";
+
+    $count_leave = Yii::$app->db->createCommand($sqlleave)->queryAll();
+
+
+    foreach ($count_leave as $r) {
+        $type1 = $r['type1'];
+        if (empty($type1)) {
+            $type1 = 0;
+        } else {
+            $type1 = $type1;
+        }
+        $type2 = $r['type2'];
+        if (empty($type2)) {
+            $type2 = 0;
+        } else {
+            $type2 = $type2;
+        }
+        $type3 = $r['type3'];
+        if (empty($type3)) {
+            $type3 = 0;
+        } else {
+            $type3 = $type3;
+        }
+        $type4 = $r['type4'];
+        if (empty($type4)) {
+            $type4 = 0;
+        } else {
+            $type4 = $type4;
+        }
+        $type5 = $r['type5'];
+        if (empty($type5)) {
+            $type5 = 0;
+        } else {
+            $type5 = $type5;
+        }
+
+        if (empty($type55)) {
+            $type55 = 0;
+        } else {
+            $type55 = $type55;
+        }
+
+        $type10 = $r['type10'];
+        if (empty($type10)) {
+            $type10 = 0;
+        } else {
+            $type10 = $type10;
+        }
+        if (empty($type9)) {
+            $type9 = 0;
+        } else {
+            $type9 = $type9;
+        }
+        if (empty($type11)) {
+            $type11 = 0;
+        } else {
+            $type11 = $type11;
+        }
+        if (empty($type12)) {
+            $type12 = 0;
+        } else {
+            $type12 = $type12;
+        }
+
+
+        $sumleaveall = $r['sumleave'];
+
+        $sumleave = $type1 + $type2 + $type3 + $type4 + $type5 + $type10;
+
+    }
+
+
+
     $content .= "<tr>"
         . "<td style='font-size: 14px;'  align='left'>" . $j . "</td>"
         . "<td style='font-size: 14px;'  align='left'>" . $name . "</td>"
-        . "<td style='font-size: 14px;'  align='center'>" . 0 . "</td>"
+        . "<td style='font-size: 14px;'  align='center'>" . $sumcount_day . "</td>"
 
         //สูตรการคำนวณ ไม่แสกนลายนิ้วมือ คือ (วันทำงาน - วันที่แสกน) - (วันที่ลา - วันที่ลา)
         . "<td style='font-size: 14px;'  align='center'>" .
-            \app\controllers\DateThaiController::BadgenumberScan($badgenumber, $date_strat, $date_end)
-
+            $sumdayscan
 
         . "</td>"
 
-        . "<td style='font-size: 14px;'  align='center'>" . 0 . "</td>"
+        . "<td style='font-size: 14px;'  align='center'>" . $sumcount_daysum2 = $sumcount_day + $sumdayscan . "</td>"
+
+        . "<td style='font-size: 14px;'  align='center'>" . $type1 . "</td>"
+        . "<td style='font-size: 14px;'  align='center'>" . $type2 . "</td>"
+        . "<td style='font-size: 14px;'  align='center'>" . $type3 . "</td>"
+        . "<td style='font-size: 14px;'  align='center'>" . $type4 . "</td>"
+        . "<td style='font-size: 14px;'  align='center'>" . $type5 . "</td>"
+        . "<td style='font-size: 14px;'  align='center'>" . $type10 . "</td>"
+        . "<td style='font-size: 14px;'  align='center'>" . $sumleave . "</td>"
+        . "</tr>";
+
+    $sumcount_daysum3 += $sumcount_day;
+    $sumcount_daysum4 += $sumdayscan;
+    $type1all += $type1;
+    $type2all += $type2;
+    $type3all += $type3;
+    $type4all += $type4;
+    $type5all += $type5;
+    $type10all += $type10;
+    $sumleavealll += $sumleave;
 
 
-            . "<td style='font-size: 14px;'  align='center'>" . 0 . "</td>"
-            . "<td style='font-size: 14px;'  align='center'>" . 0 . "</td>"
-            . "<td style='font-size: 14px;'  align='center'>" . 0 . "</td>"
-            . "<td style='font-size: 14px;'  align='center'>" . 0 . "</td>"
-            . "<td style='font-size: 14px;'  align='center'>" . 0 . "</td>"
-            . "<td style='font-size: 14px;'  align='center'>" . 0 . "</td>"
-            . "<td style='font-size: 14px;'  align='center'>" . 0 . "</td>"
-            . "</tr>";
+
 }
+
+//นับวันมาสาย รวมทั้งหน่วยงาน
+$sqldepart = "SELECT ch.userid,ch.checktime,ch.checktype as checktype, SUBSTR(ch.checktime,-8,8) AS time,SUBSTR(ch.checktime,1,11) AS date
+            FROM scan_chkinout as ch
+            INNER JOIN scan_userinfo  as d
+            ON ch.userid = d.badgenumber
+            INNER JOIN scan_department as dert
+            ON d.defaultdepid = dert.deptid
+            WHERE dert.deptid = '$userid'
+            AND ch.checktype = '0'
+            AND SUBSTR(ch.checktime,-8,8) >'$time_C'
+            AND SUBSTR(ch.checktime,-8,8) <'10:00:00'
+            AND ch.checktime BETWEEN '$date_new' AND '$date_new2'; ";
+
+$count_daydepart = Yii::$app->db->createCommand($sqldepart)->queryAll();
+$count_daydatepart = count($count_daydepart);
+
+$content .= "
+        <tr>
+        <td style='font-size: 14px;' align='right' colspan='2'><b>รวม </b></td>
+        <td style='font-size: 14px;' align='center'> " . number_format($sumcount_daysum3, 0) . " </td>
+        <td style='font-size: 14px;' align='center'> " . number_format($sumcount_daysum4, 0) . " </td>
+        <td style='font-size: 14px;' align='center'><b> " . number_format($sumcount_daysum3 + $sumcount_daysum4) . "</b></td>
+
+        <td style='font-size: 14px;'  align='center'>" . $type1all . "</td>
+        <td style='font-size: 14px;'  align='center'>" . $type2all . "</td>
+        <td style='font-size: 14px;'  align='center'>" . $type3all . "</td>
+        <td style='font-size: 14px;'  align='center'>" . $type4all . "</td>
+        <td style='font-size: 14px;'  align='center'>" . $type5all . "</td>
+        <td style='font-size: 14px;'  align='center'>" . $type10all . "</td>
+        <td style='font-size: 14px;'  align='center'>" . $sumleavealll . "</td>
+        </tr>";
 
 $content .= "</tbody></table>";
 
@@ -269,8 +554,394 @@ $content .= "</tbody></table>";
 $html = $header . $content;
 
 $mpdf->WriteHTML($html);
+
+
+//ขึ้นหน้าที่ 2 ========================================================================================================
+$mpdf->addPage();
+
+
+$no_1 = "รอ.0032.101/" . "";
+$no_1 = thainumDigit($no_1);
+
+
+//=====================SQL==========================================
+$sql = "SELECT * FROM scan_userinfo u
+LEFT JOIN scan_department d ON u.defaultdepid=d.deptid
+LEFT JOIN scan_intime i ON d.intime_id=i.intime_id
+where u.defaultdepid='$userid';";
+//=====================SQL==========================================
+
+$rw1 = Yii::$app->db->createCommand($sql)->queryAll();
+$countdeart = count($rw1);
+
+foreach ($rw1 as $r) {
+    $name = $r['name'];
+
+    $deptname = $r['deptname'];
+    $time_A = $r['time_A'];
+    $time_B = $r['time_B'];
+    $time_C = $r['time_C'];
+
+    if ($time_A != '00:00:00') {
+        $time = 'เข้างานเวลา ' . thainumDigit($time_A) . " น.  เวลาเลิกงานเวลา " . thainumDigit($time_B) . ' น. ';
+    } else {
+        $time = "เวลาทำงานปกติ  จัดตารางเวร";
+    }
+
+
+}
+
+
+$header = "<table width='100%' border='0'>"
+    . "<tr>"
+    . "<td height='24' colspan='2' style='font-size: 30px;'><img src='img/crut.gif' height='80' width='80'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b>บันทึกข้อความ</b>"
+    . "</td>"
+    . "</tr>"
+    . "<tr>"
+    . "<td height='24' colspan='2' style='font-size: 22px;'><b>ส่วนราชการ</b>&nbsp;&nbsp;โรงพยาบาลร้อยเอ็ด กลุ่ม/ฝ่าย/งาน " . $deptname . '  โทร .......................................'
+    . "</td>"
+    . "</tr>"
+    . "<tr>"
+    . "<td height='24' width='350' style='font-size: 22px;'><b>ที่</b>&nbsp;&nbsp;" . $no_1 . '.......................................'
+    . "</td>"
+    . "<td height='24' style='font-size: 22px;'> <b>วันที่</b>&nbsp;&nbsp;" . thainumDigit(ThaiDate(strtotime($date_time)))
+    . "</td>"
+    . "</tr>"
+    . "<tr>"
+    . "<td height='24' colspan='2' style='font-size: 22px;'><b>เรื่อง</b>&nbsp;&nbsp;รายงานผลการมาปฏิบัติงานของเจ้าหน้าที่ด้วยเครื่องแสกนลายนิ้วมือ"
+    . "</td>"
+    . "</tr>"
+    . "<tr>"
+    . "<td height='24' colspan='2' style='font-size: 22px;'><b>เรียน</b>&nbsp;&nbsp;รองผู้อำนวยการฝ่ายบริหาร</span>"
+    . "</td>"
+    . "</tr>"
+    . "</table>";
+
+//นับไม่แสกนลายนิ้วมือ
+$strStartDate = $date_strat;
+$strEndDate = $date_end;
+
+$intWorkDay = 0;
+$intHoliday = 0;
+$intPublicHoliday = 0;
+$Descripiton = 0;
+//กำหนดค่า รวมไม่แสกนลายนิ้วมือ
+$ds = 0;
+$sumscandate = 0;
+$count_leave = 0;
+$count_leave1 = 0;
+
+$intTotalDay = ((strtotime($strEndDate) - strtotime($strStartDate)) / (60 * 60 * 24)) + 1;
+
+
+$i = 0;
+while (strtotime($strStartDate) <= strtotime($strEndDate)) {
+    $i++;
+
+    $DayOfWeek = date("w", strtotime($strStartDate));
+
+    if ($DayOfWeek == 0 or $DayOfWeek == 6)  // 0 = Sunday, 6 = Saturday;
+    {
+        $intHoliday++;
+        //$strStartDate = "<font color=red>Holiday</font><br>";
+
+        $day = DateThai($strStartDate) . " วันหยุดงาน";
+
+        //เชคการมาทำงานสายของ บุคคล
+        $strSQL1 = "SELECT DISTINCT SUBSTR(ch.checktime,1,11) AS date
+                FROM scan_chkinout ch
+                WHERE ch.userid='$badgenumber'
+                AND DATE_FORMAT(ch.checktime,'%Y-%m-%d') BETWEEN '$date_strat' AND '$date_end';
+                ";
+
+        $strSQL2 = "SELECT DISTINCT SUBSTR(ch.checktime,1,11) AS date,ch.userid
+                        FROM scan_chkinout ch
+                        INNER JOIN scan_userinfo u
+                        ON ch.userid = u.badgenumber
+                        WHERE u.defaultdepid='$userid'
+                        AND DATE_FORMAT(ch.checktime,'%Y-%m-%d') BETWEEN '$date_strat' AND '$date_end'
+                        ";
+
+        $objResult1 = Yii::$app->db->createCommand($strSQL1)->queryAll();
+        $objResult2 = Yii::$app->db->createCommand($strSQL2)->queryAll();
+
+        //นับจำนวนวันที่แสกนลายนิ้วมือ
+        $count_leave = count($objResult1);
+
+        //นับจำนวนวันที่แสกนลายนิ้วมือ หน่วยงาน
+        $count_leave1 = count($objResult2);
+
+
+    } elseif (CheckPublicHoliday($strStartDate)) {
+        $intPublicHoliday++;
+
+        $strSQL = "SELECT * FROM scan_holiday WHERE PublicHoliday = '" . $strStartDate . "' ";
+        $objResult = Yii::$app->db->createCommand($strSQL)->queryAll();
+
+        foreach ($objResult as $r) {
+            $Descripiton = $r['Descripiton'];
+
+            $day = DateThai($strStartDate) . ' ' . $Descripiton;
+
+        }
+    } else {
+        $intWorkDay++;
+        //$strStartDate = "<b>Work Day</b><br>";
+        $day = DateThai($strStartDate) . " วันทำงาน";
+
+        //$scan = "";
+    }
+
+
+    $strStartDate = date("Y-m-d", strtotime("+1 day", strtotime($strStartDate)));
+
+
+}
+
+
+$date_new = date("Y-m-d 07:00:00", strtotime($date_strat));
+$date_new2 = date("Y-m-d 10:00:00", strtotime($date_end));
+
+
+//นับวัน ลา
+$sqlleave = "SELECT SUM(leavetype_id = '1') as type1,SUM(leavetype_id = '2') as type2
+                ,SUM(leavetype_id = '3') as type3,SUM(leavetype_id = '4') as type4,SUM(leavetype_id = '8') as type5,
+                COUNT(leavetype_id) as sumleave
+                FROM scan_leave ch
+                INNER JOIN scan_userinfo  as d
+                ON ch.userid = d.badgenumber
+                INNER JOIN scan_department as dert
+                ON d.defaultdepid = dert.deptid
+                WHERE dert.deptid = '$userid'
+                AND date BETWEEN '$date_strat' AND '$date_end';";
+$count_leave2 = Yii::$app->db->createCommand($sqlleave)->queryAll();
+
+
+foreach ($count_leave2 as $r) {
+
+    $type1 = $r['type1'];
+    if (empty($type1)) {
+        $type1 = 0;
+    } else {
+        $type1 = $type1;
+    }
+    $type2 = $r['type2'];
+    if (empty($type2)) {
+        $type2 = 0;
+    } else {
+        $type2 = $type2;
+    }
+    $type3 = $r['type3'];
+    if (empty($type3)) {
+        $type3 = 0;
+    } else {
+        $type3 = $type3;
+    }
+    $type4 = $r['type4'];
+    if (empty($type4)) {
+        $type4 = 0;
+    } else {
+        $type4 = $type4;
+    }
+    $type5 = $r['type5'];
+    if (empty($type5)) {
+        $type5 = 0;
+    } else {
+        $type5 = $type4;
+    }
+
+    $sumleave = $r['sumleave'];
+
+
+}
+
+
+//นับวันมาสาย รวมทั้งหน่วยงาน
+$sqldepart = "SELECT ch.userid,ch.checktime,ch.checktype as checktype, SUBSTR(ch.checktime,-8,8) AS time,SUBSTR(ch.checktime,1,11) AS date
+            FROM scan_chkinout as ch
+            INNER JOIN scan_userinfo  as d
+            ON ch.userid = d.badgenumber
+            INNER JOIN scan_department as dert
+            ON d.defaultdepid = dert.deptid
+            WHERE dert.deptid = '$userid'
+            AND ch.checktype = '0'
+            AND SUBSTR(ch.checktime,-8,8) >'$time_C'
+            AND SUBSTR(ch.checktime,-8,8) <'10:00:00'
+            AND ch.checktime BETWEEN '$date_new' AND '$date_new2'; ";
+
+$count_daydepart = Yii::$app->db->createCommand($sqldepart)->queryAll();
+$count_daydatepart = count($count_daydepart);
+
+
+//วันลางาน ทั้งหน่วยงาน
+
+
+$noscan = 0;
+
+if ($count_leave > $intWorkDay) {
+
+    //แสกนนิ้วเกินจากวันทำงาน
+    $noscan = $count_leave - $intWorkDay;
+
+    //จำนวนวันรวม ที่ไม่มีการแสกนนิ้วมือ
+    $sumscandate = ($intWorkDay - $noscan) - ($intWorkDay - $noscan);
+
+} else {
+
+    //แสกนนิ้วไม่พอ
+    $noscan = $intWorkDay - ($intWorkDay - $noscan);
+
+    //จำนวนวันรวม ที่ไม่มีการแสกนนิ้วมือ
+    $sumscandate = $intWorkDay - ($count_leave - $noscan);
+
+}
+
+
+//คำควณ วันทำงาน ทั้งหน่วยงาน
+$sumwork = $intWorkDay * $countdeart;
+
+//คำนวณ เปอร์วันทำงาน มาสาย
+//$sumpersen = ($sumwork - $count_daydatepart) * 100 / $sumwork;
+
+$sumpersen = ($sumcount_daysum3 / $sumwork) * 100;
+
+
+//คำนวณ เปอร์วันทำงาน ไม่แสกนนิ้วมือ
+//$sumpersenscan = ($sumwork - $sumscandate1) * 100 / $sumwork;
+
+
+$sumpersenscan = ($sumcount_daysum4 / $sumwork) * 100;
+
+//คำนวณ เปอร์วันทำงาน ไม่แสกนนิ้วมือ
+//$sumpersenscanleave = ($sumwork - $sumleave) * 100 / $sumwork;
+
+$sumpersenscanleave = ($sumleavealll / $sumwork) * 100;
+
+//วันหยุด
+$sumdayleave = $intHoliday + $intPublicHoliday;
+
+
+$content = "<table width='100%' border='0'>"
+    . "<tr>"
+    . "<td height='24' colspan='2' style='font-size: 22px;'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"
+    . "กลุ่มงาน/ฝ่าย/งาน/ตึก " . $deptname . " ขอรายงานการมาปฏิบัติงาน"
+    . "</td>"
+    . "</tr>"
+    . "<tr>"
+    . "<td height='24' colspan='2' style='font-size: 22px;'>ของเจ้าหน้าที่ด้วยเครื่องแสกนลายนิ้วมือ ระหว่างวันที่ " . thainumDigit(ThaiDate(strtotime($date_strat))) . "  ถึงวันที่ " . thainumDigit(ThaiDate(strtotime($date_end)))
+
+    . "</td>"
+    . "</tr>"
+
+    . "<tr>"
+    . "<td height='24' colspan='2' style='font-size: 22px;'>รวม " . thainumDigit($intTotalDay) . " วันทำการ  ดังนี้"
+
+    . "</td>"
+    . "</tr>"
+
+    . "<tr>"
+    . "<td height='24'  style='font-size: 22px;' align='left'>
+                    เวลาทำงานปกติ"
+
+    . "</td>"
+    . "<td height='24' style='font-size: 22px;' align='left'>"
+    . $time
+    . "</td>"
+    . "</tr>"
+
+    . "<tr>"
+    . "<td height='24'  style='font-size: 22px;' align='left'>
+                    บุคลากรทั้งหน่วยงาน "
+
+    . "</td>"
+    . "<td height='24' style='font-size: 22px;' align='left'>
+                    จำนวน " . thainumDigit(number_format($countdeart)) . " ราย "
+
+    . "</td>"
+    . "</tr>"
+
+    . "<tr>"
+    . "<td height='24'  style='font-size: 22px;' align='left'>
+                    มาสาย "
+
+    . "</td>"
+    . "<td height='24' style='font-size: 22px;' align='left'>"
+
+
+    . "จำนวน " . thainumDigit(number_format($sumcount_daysum3)) . " ครั้ง   คิดเป็น " . thainumDigit(SUBSTR($sumpersen, 0, 5)) . ' %'
+
+    . "</td>"
+    . "</tr>"
+
+    . "<tr>"
+    . "<td height='24'  style='font-size: 22px;' align='left'>
+                    ไม่แสกนลายนิ้วมือ "
+
+    . "</td>"
+    . "<td height='24' style='font-size: 22px;' align='left'>
+                    จำนวน " . thainumDigit(number_format($sumcount_daysum4)) . " ครั้ง   คิดเป็น " . thainumDigit(SUBSTR($sumpersenscan, 0, 5)) . ' %'
+
+    . "</td>"
+    . "</tr>"
+
+    . "<tr>"
+    . "<td height='24'  style='font-size: 22px;' align='left'>
+                    ไปราชการ/ลากิจ/ลาพักผ่อน/ลาป่วย/OTเสริม/หยุดวอร์ด"
+
+    . "</td>"
+    . "<td height='24' style='font-size: 22px;' align='left'>
+                    จำนวน " . thainumDigit(number_format($sumleavealll)) . " ครั้ง   คิดเป็น " . thainumDigit(SUBSTR($sumpersenscanleave, 0, 5)) . ' %'
+
+    . "</td>"
+    . "</tr>"
+
+    . "<tr>"
+    . "<td height='24'  colspan='2'  style='font-size: 22px;' align='left'>
+                    พร้อมทั้งแนบบัญชีเวลาปฏิบัติงานราชการ ของฝ่ายงาน/แผนก/ " . $deptname . " มาด้วย"
+
+    . "</td>"
+
+    . "</tr>"
+    . "<tr>"
+    . "<td height='24' colspan='2'  style='font-size: 22px;' align='left'>
+                    จึงเรียนมาเพื่อโปรดทราบ "
+
+    . "</td>"
+
+    . "</tr>"
+
+
+    . "</table>";
+
+
+$content .= "<br>"
+    . "<br>"
+    . "<br>"
+    . "<table width='100%'>"
+    . "<tr>"
+    . "<td width='33%'></td>"
+    . "<td style='font-size: 22px;'><center>ลงชื่อ.....................................................ผู้รายงาน</center></td>"
+    . "</tr>"
+    . "<tr>"
+    . "<td width='33%'></td>"
+    . "<td style='font-size: 22px;'><center>(......................................................................)</center>"
+    . "</td>"
+    . "</tr>"
+    . "<tr>"
+    . "<td width='33%'></td>"
+    . "<td style='font-size: 22px;'><center>ตำแหน่ง .................................................................</center></td>"
+    . "</tr>"
+    . "</table>";
+
+
+$html = $header . $content;
+
+
+$mpdf->WriteHTML($html);
+
 $mpdf->Output();
 exit();
 
 
 ?>
+
